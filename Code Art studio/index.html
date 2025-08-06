@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Code Art Studio 🎨</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="toolbar">
+    <h1>🎨 Code Art Studio</h1>
+    
+    <div class="tools">
+      <div class="tool-group">
+        <label>Drawing:</label>
+        <button id="pencilTool" class="tool-btn active">✏️ Pencil</button>
+        <button id="brushTool" class="tool-btn">🖌️ Brush</button>
+        <button id="eraserTool" class="tool-btn">🧽 Eraser</button>
+        <button id="bucketTool" class="tool-btn">🪣 Fill</button>
+      </div>
+      
+      <div class="tool-group">
+        <label>Shapes:</label>
+        <button id="lineTool" class="tool-btn">📏 Line</button>
+        <button id="rectangleTool" class="tool-btn">⬜ Rectangle</button>
+        <button id="circleTool" class="tool-btn">⭕ Circle</button>
+        <button id="triangleTool" class="tool-btn">🔺 Triangle</button>
+        <button id="starTool" class="tool-btn">⭐ Star</button>
+        <button id="ellipseTool" class="tool-btn">🕸 Ellipse</button>
+        <button id="hexagonTool" class="tool-btn">⬢ Hexagon</button>
+      </div>
+      
+      <div class="tool-group">
+        <label>Colors:</label>
+        <div class="color-palette">
+          <div class="color-swatch active" data-color="#000000" style="background-color: #000000;"></div>
+          <div class="color-swatch" data-color="#FFFFFF" style="background-color: #FFFFFF;"></div>
+          <div class="color-swatch" data-color="#FF0000" style="background-color: #FF0000;"></div>
+          <div class="color-swatch" data-color="#00FF00" style="background-color: #00FF00;"></div>
+          <div class="color-swatch" data-color="#0000FF" style="background-color: #0000FF;"></div>
+          <div class="color-swatch" data-color="#FFFF00" style="background-color: #FFFF00;"></div>
+          <div class="color-swatch" data-color="#FF00FF" style="background-color: #FF00FF;"></div>
+          <div class="color-swatch" data-color="#00FFFF" style="background-color: #00FFFF;"></div>
+          <div class="color-swatch" data-color="#FFA500" style="background-color: #FFA500;"></div>
+          <div class="color-swatch" data-color="#800080" style="background-color: #800080;"></div>
+          <div class="color-swatch" data-color="#FFC0CB" style="background-color: #FFC0CB;"></div>
+          <div class="color-swatch" data-color="#A52A2A" style="background-color: #A52A2A;"></div>
+          <div class="color-swatch" data-color="#808080" style="background-color: #808080;"></div>
+          <div class="color-swatch" data-color="#90EE90" style="background-color: #90EE90;"></div>
+          <div class="color-swatch" data-color="#87CEEB" style="background-color: #87CEEB;"></div>
+          <input type="color" id="customColorPicker" class="custom-color-picker" value="#000000" title="Custom Color" />
+        </div>
+      </div>
+      
+      <div class="tool-group">
+        <label>Size:</label>
+        <input type="range" id="sizeSlider" min="1" max="50" value="2" />
+        <span id="sizeDisplay">2px</span>
+      </div>
+      
+      <div class="tool-group">
+        <button id="clearBtn">🗑️ Clear</button>
+        <button id="saveBtn">💾 Save</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <canvas id="artCanvas" width="800" height="600"></canvas>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
