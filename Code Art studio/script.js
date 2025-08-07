@@ -1,5 +1,3 @@
-
-// Get canvas and context
 const canvas = document.getElementById('artCanvas');
 const ctx = canvas.getContext('2d');
 
@@ -42,8 +40,9 @@ let isDrawing = false;
 let currentTool = 'pencil';
 let currentColor = '#000000';
 let currentSize = 2;
-let startX, startY;
-let imageData;
+let startX = 0;
+let startY = 0;
+let imageData = null;
 
 // Undo/Redo system
 let undoStack = [];
@@ -120,7 +119,6 @@ function updateUndoRedoButtons() {
 
 // View switching
 function switchView(view) {
-    // Remove active class from all buttons
     canvasViewBtn.classList.remove('active');
     codeViewBtn.classList.remove('active');
     splitViewBtn.classList.remove('active');
@@ -152,97 +150,7 @@ function setActiveTool(tool) {
     canvas.style.cursor = 'crosshair';
 }
 
-// Event listeners for tools
-Object.keys(tools).forEach(tool => {
-    tools[tool].addEventListener('click', () => setActiveTool(tool));
-});
-
-// Color functionality
-colorSwatches.forEach(swatch => {
-    swatch.addEventListener('click', () => {
-        colorSwatches.forEach(s => s.classList.remove('active'));
-        swatch.classList.add('active');
-        currentColor = swatch.dataset.color;
-        customColorPicker.value = currentColor;
-    });
-});
-
-customColorPicker.addEventListener('change', (e) => {
-    currentColor = e.target.value;
-    colorSwatches.forEach(s => s.classList.remove('active'));
-    const matchingSwatch = Array.from(colorSwatches).find(swatch =>
-        swatch.dataset.color.toLowerCase() === currentColor.toLowerCase()
-    );
-    if (matchingSwatch) {
-        matchingSwatch.classList.add('active');
-    }
-});
-
-// Size slider
-sizeSlider.addEventListener('input', (e) => {
-    currentSize = parseInt(e.target.value);
-    sizeDisplay.textContent = currentSize + 'px';
-});
-
-// View controls
-canvasViewBtn.addEventListener('click', () => switchView('canvas'));
-codeViewBtn.addEventListener('click', () => switchView('code'));
-splitViewBtn.addEventListener('click', () => switchView('split'));
-
-// Undo/Redo buttons
-undoBtn.addEventListener('click', undo);
-redoBtn.addEventListener('click', redo);
-
-// Code tabs
-codeTabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-        codeTabs.forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        currentCodeTab = tab.dataset.tab;
-        updateCodeDisplay();
-    });
-});
-
-// Copy functionality
-copyBtn.addEventListener('click', async () => {
-    try {
-        await navigator.clipboard.writeText(codeEditor.value);
-        copyBtn.textContent = '✓ Copied!';
-        copyBtn.classList.add('copied');
-        setTimeout(() => {
-            copyBtn.textContent = '📋 Copy';
-            copyBtn.classList.remove('copied');
-        }, 2000);
-    } catch (err) {
-        // Fallback for older browsers
-        codeEditor.select();
-        document.execCommand('copy');
-        copyBtn.textContent = '✓ Copied!';
-        copyBtn.classList.add('copied');
-        setTimeout(() => {
-            copyBtn.textContent = '📋 Copy';
-            copyBtn.classList.remove('copied');
-        }, 2000);
-    }
-});
-
-// Clear and save
-clearBtn.addEventListener('click', () => {
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    shapes = [];
-    saveState();
-    updateCodeDisplay();
-});
-
-saveBtn.addEventListener('click', () => {
-    const link = document.createElement('a');
-    link.download = 'my-artwork.png';
-    link.href = canvas.toDataURL();
-    link.click();
-});
-
-// Drawing functions
+// Get mouse position
 function getPosition(e) {
     const rect = canvas.getBoundingClientRect();
     return {
@@ -251,6 +159,32 @@ function getPosition(e) {
     };
 }
 
+// Set drawing style based on current tool
+function setDrawingStyle() {
+    if (currentTool === 'pencil') {
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.lineWidth = currentSize;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = currentColor;
+        ctx.globalAlpha = 1.0;
+    } else if (currentTool === 'brush') {
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.lineWidth = currentSize * 2;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = currentColor;
+        ctx.globalAlpha = 0.8;
+    } else if (currentTool === 'eraser') {
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.lineWidth = currentSize * 3;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.globalAlpha = 1.0;
+    }
+}
+
+// Drawing functions
 function startDrawing(e) {
     isDrawing = true;
     const pos = getPosition(e);
@@ -266,35 +200,131 @@ function startDrawing(e) {
     }
 }
 
-function setDrawingStyle() {
-    if (currentTool === 'pencil') {
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.lineWidth = currentSize;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.strokeStyle = currentColor;
-    } else if (currentTool === 'brush') {
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.lineWidth = currentSize * 2;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.strokeStyle = currentColor;
-        ctx.globalAlpha = 0.8;
-    } else if (currentTool === 'eraser') {
-        ctx.globalCompositeOperation = 'destination-out';
-        ctx.lineWidth = currentSize * 3;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-    }
-}
-
 function draw(e) {
     if (!isDrawing) return;
 
     const pos = getPosition(e);
 
     if (['pencil', 'brush', 'eraser'].includes(currentTool)) {
-        ctx.lineTo(x, y);
+        ctx.lineTo(pos.x, pos.y);
+        ctx.stroke();
+    } else {
+        ctx.putImageData(imageData, 0, 0);
+        drawShape(startX, startY, pos.x, pos.y, true);
+    }
+}
+
+function stopDrawing(e) {
+    if (!isDrawing) return;
+
+    if (['pencil', 'brush', 'eraser'].includes(currentTool)) {
+        ctx.globalAlpha = 1.0;
+        ctx.globalCompositeOperation = 'source-over';
+    } else {
+        const pos = getPosition(e);
+        ctx.putImageData(imageData, 0, 0);
+        const shape = drawShape(startX, startY, pos.x, pos.y, false);
+        if (shape) {
+            shapes.push(shape);
+        }
+    }
+
+    isDrawing = false;
+    saveState();
+    updateCodeDisplay();
+}
+
+// Draw shapes
+function drawShape(x1, y1, x2, y2, isPreview) {
+    ctx.strokeStyle = currentColor;
+    ctx.lineWidth = currentSize;
+    ctx.lineCap = 'round';
+    ctx.globalAlpha = isPreview ? 0.5 : 1.0;
+    ctx.globalCompositeOperation = 'source-over';
+
+    const shape = {
+        id: shapeCounter++,
+        type: currentTool,
+        x1: x1, y1: y1, x2: x2, y2: y2,
+        color: currentColor,
+        strokeWidth: currentSize
+    };
+
+    ctx.beginPath();
+
+    switch (currentTool) {
+        case 'line':
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            break;
+
+        case 'rectangle':
+            const width = x2 - x1;
+            const height = y2 - y1;
+            ctx.strokeRect(x1, y1, width, height);
+            shape.width = width;
+            shape.height = height;
+            break;
+
+        case 'circle':
+            const centerX = (x1 + x2) / 2;
+            const centerY = (y1 + y2) / 2;
+            const radius = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2)) / 2;
+            ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+            shape.centerX = centerX;
+            shape.centerY = centerY;
+            shape.radius = radius;
+            break;
+
+        case 'triangle':
+            const midX = (x1 + x2) / 2;
+            ctx.moveTo(midX, y1);
+            ctx.lineTo(x1, y2);
+            ctx.lineTo(x2, y2);
+            ctx.closePath();
+            break;
+
+        case 'star':
+            const starCenterX = (x1 + x2) / 2;
+            const starCenterY = (y1 + y2) / 2;
+            const outerRadius = Math.abs(x2 - x1) / 2;
+            const innerRadius = outerRadius / 2;
+            drawStar(ctx, starCenterX, starCenterY, innerRadius, outerRadius, 5);
+            shape.centerX = starCenterX;
+            shape.centerY = starCenterY;
+            shape.outerRadius = outerRadius;
+            shape.innerRadius = innerRadius;
+            break;
+
+        case 'ellipse':
+            const radiusX = Math.abs(x2 - x1) / 2;
+            const radiusY = Math.abs(y2 - y1) / 2;
+            const ellipseCenterX = (x1 + x2) / 2;
+            const ellipseCenterY = (y1 + y2) / 2;
+            ctx.ellipse(ellipseCenterX, ellipseCenterY, radiusX, radiusY, 0, 0, 2 * Math.PI);
+            shape.centerX = ellipseCenterX;
+            shape.centerY = ellipseCenterY;
+            shape.radiusX = radiusX;
+            shape.radiusY = radiusY;
+            break;
+    }
+
+    ctx.stroke();
+    ctx.globalAlpha = 1.0;
+
+    return isPreview ? null : shape;
+}
+
+// Helper function to draw a star
+function drawStar(ctx, cx, cy, innerRadius, outerRadius, points) {
+    const angle = Math.PI / points;
+    ctx.moveTo(cx, cy - outerRadius);
+
+    for (let i = 0; i < 2 * points; i++) {
+        const radius = i % 2 === 0 ? outerRadius : innerRadius;
+        const starX = cx + Math.cos(i * angle - Math.PI / 2) * radius;
+        const starY = cy + Math.sin(i * angle - Math.PI / 2) * radius;
+        ctx.lineTo(starX, starY);
     }
     ctx.closePath();
 }
@@ -415,13 +445,101 @@ function updateCodeDisplay() {
 
     codeEditor.value = code;
 
-    // Update placeholder
     if (shapes.length === 0) {
         codeEditor.placeholder = "Draw shapes to see the generated code...";
     } else {
         codeEditor.placeholder = "";
     }
 }
+
+// Event listeners for tools
+Object.keys(tools).forEach(tool => {
+    tools[tool].addEventListener('click', () => setActiveTool(tool));
+});
+
+// Color functionality
+colorSwatches.forEach(swatch => {
+    swatch.addEventListener('click', () => {
+        colorSwatches.forEach(s => s.classList.remove('active'));
+        swatch.classList.add('active');
+        currentColor = swatch.dataset.color;
+        customColorPicker.value = currentColor;
+    });
+});
+
+customColorPicker.addEventListener('change', (e) => {
+    currentColor = e.target.value;
+    colorSwatches.forEach(s => s.classList.remove('active'));
+    const matchingSwatch = Array.from(colorSwatches).find(swatch =>
+        swatch.dataset.color.toLowerCase() === currentColor.toLowerCase()
+    );
+    if (matchingSwatch) {
+        matchingSwatch.classList.add('active');
+    }
+});
+
+// Size slider
+sizeSlider.addEventListener('input', (e) => {
+    currentSize = parseInt(e.target.value);
+    sizeDisplay.textContent = currentSize + 'px';
+});
+
+// View controls
+canvasViewBtn.addEventListener('click', () => switchView('canvas'));
+codeViewBtn.addEventListener('click', () => switchView('code'));
+splitViewBtn.addEventListener('click', () => switchView('split'));
+
+// Undo/Redo buttons
+undoBtn.addEventListener('click', undo);
+redoBtn.addEventListener('click', redo);
+
+// Code tabs
+codeTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+        codeTabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        currentCodeTab = tab.dataset.tab;
+        updateCodeDisplay();
+    });
+});
+
+// Copy functionality
+copyBtn.addEventListener('click', async () => {
+    try {
+        await navigator.clipboard.writeText(codeEditor.value);
+        copyBtn.textContent = '✓ Copied!';
+        copyBtn.classList.add('copied');
+        setTimeout(() => {
+            copyBtn.textContent = '📋 Copy';
+            copyBtn.classList.remove('copied');
+        }, 2000);
+    } catch (err) {
+        codeEditor.select();
+        document.execCommand('copy');
+        copyBtn.textContent = '✓ Copied!';
+        copyBtn.classList.add('copied');
+        setTimeout(() => {
+            copyBtn.textContent = '📋 Copy';
+            copyBtn.classList.remove('copied');
+        }, 2000);
+    }
+});
+
+// Clear and save
+clearBtn.addEventListener('click', () => {
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    shapes = [];
+    saveState();
+    updateCodeDisplay();
+});
+
+saveBtn.addEventListener('click', () => {
+    const link = document.createElement('a');
+    link.download = 'my-artwork.png';
+    link.href = canvas.toDataURL();
+    link.click();
+});
 
 // Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
@@ -485,7 +603,7 @@ canvas.addEventListener('touchstart', (e) => {
         clientX: touch.clientX,
         clientY: touch.clientY
     });
-    canvas.dispatchEvent(mouseEvent);
+    startDrawing(mouseEvent);
 });
 
 canvas.addEventListener('touchmove', (e) => {
@@ -495,13 +613,13 @@ canvas.addEventListener('touchmove', (e) => {
         clientX: touch.clientX,
         clientY: touch.clientY
     });
-    canvas.dispatchEvent(mouseEvent);
+    draw(mouseEvent);
 });
 
 canvas.addEventListener('touchend', (e) => {
     e.preventDefault();
     const mouseEvent = new MouseEvent('mouseup', {});
-    canvas.dispatchEvent(mouseEvent);
+    stopDrawing(mouseEvent);
 });
 
 // Prevent context menu on canvas
@@ -531,7 +649,7 @@ function resizeCanvas() {
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
-console.log('🎨 Code Art Studio loaded!');
+console.log('🎨 Code Art Studio loaded successfully!');
 console.log('Keyboard shortcuts:');
 console.log('• Ctrl+Z: Undo');
 console.log('• Ctrl+Shift+Z: Redo');
