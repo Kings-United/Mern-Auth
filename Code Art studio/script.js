@@ -4,6 +4,7 @@ const ctx = canvas.getContext('2d');
 // Get UI elements
 const tools = {
     pencil: document.getElementById('pencilTool'),
+    bucket: document.getElementById('bucketTool'),
     brush: document.getElementById('brushTool'),
     eraser: document.getElementById('eraserTool'),
     line: document.getElementById('lineTool'),
@@ -181,6 +182,13 @@ function setDrawingStyle() {
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         ctx.globalAlpha = 1.0;
+    } else if (currentTool === 'bucket') {
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.lineWidth = currentSize;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = currentColor;
+        ctx.globalAlpha = 1.0;
     }
 }
 
@@ -191,7 +199,7 @@ function startDrawing(e) {
     startX = pos.x;
     startY = pos.y;
 
-    if (['pencil', 'brush', 'eraser'].includes(currentTool)) {
+    if (['pencil', 'brush', 'eraser', 'bucket'].includes(currentTool)) {
         ctx.beginPath();
         ctx.moveTo(pos.x, pos.y);
         setDrawingStyle();
@@ -205,7 +213,7 @@ function draw(e) {
 
     const pos = getPosition(e);
 
-    if (['pencil', 'brush', 'eraser'].includes(currentTool)) {
+    if (['pencil', 'brush', 'eraser', 'bucket'].includes(currentTool)) {
         ctx.lineTo(pos.x, pos.y);
         ctx.stroke();
     } else {
@@ -217,7 +225,7 @@ function draw(e) {
 function stopDrawing(e) {
     if (!isDrawing) return;
 
-    if (['pencil', 'brush', 'eraser'].includes(currentTool)) {
+    if (['pencil', 'brush', 'eraser', 'bucket'].includes(currentTool)) {
         ctx.globalAlpha = 1.0;
         ctx.globalCompositeOperation = 'source-over';
     } else {
