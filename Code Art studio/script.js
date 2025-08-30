@@ -4,9 +4,9 @@ const ctx = canvas.getContext('2d');
 // Get UI elements
 const tools = {
     pencil: document.getElementById('pencilTool'),
-    bucket: document.getElementById('bucketTool'),
     brush: document.getElementById('brushTool'),
     eraser: document.getElementById('eraserTool'),
+    bucket: document.getElementById('bucket'),
     line: document.getElementById('lineTool'),
     rectangle: document.getElementById('rectangleTool'),
     circle: document.getElementById('circleTool'),
@@ -182,13 +182,6 @@ function setDrawingStyle() {
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         ctx.globalAlpha = 1.0;
-    } else if (currentTool === 'bucket') {
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.lineWidth = currentSize;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.strokeStyle = currentColor;
-        ctx.globalAlpha = 1.0;
     }
 }
 
@@ -199,7 +192,7 @@ function startDrawing(e) {
     startX = pos.x;
     startY = pos.y;
 
-    if (['pencil', 'brush', 'eraser', 'bucket'].includes(currentTool)) {
+    if (['pencil', 'brush', 'eraser'].includes(currentTool)) {
         ctx.beginPath();
         ctx.moveTo(pos.x, pos.y);
         setDrawingStyle();
@@ -213,7 +206,7 @@ function draw(e) {
 
     const pos = getPosition(e);
 
-    if (['pencil', 'brush', 'eraser', 'bucket'].includes(currentTool)) {
+    if (['pencil', 'brush', 'eraser'].includes(currentTool)) {
         ctx.lineTo(pos.x, pos.y);
         ctx.stroke();
     } else {
@@ -225,7 +218,7 @@ function draw(e) {
 function stopDrawing(e) {
     if (!isDrawing) return;
 
-    if (['pencil', 'brush', 'eraser', 'bucket'].includes(currentTool)) {
+    if (['pencil', 'brush', 'eraser'].includes(currentTool)) {
         ctx.globalAlpha = 1.0;
         ctx.globalCompositeOperation = 'source-over';
     } else {
@@ -597,11 +590,95 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// Mouse events
-canvas.addEventListener('mousedown', startDrawing);
+// Mouse events - consolidated event handler
+canvas.addEventListener('mousedown', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.floor(e.clientX - rect.left);
+    const y = Math.floor(e.clientY - rect.top);
+
+    if (currentTool === "bucket") {
+        bucketFill(x, y, currentColor);
+        saveState(); // Save after filling
+    } else {
+        startDrawing(e);
+    }
+});
 canvas.addEventListener('mousemove', draw);
 canvas.addEventListener('mouseup', stopDrawing);
 canvas.addEventListener('mouseout', stopDrawing);
+
+function bucketFill(startX, startY, fillColor) {
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+    const width = imageData.width;
+    const height = imageData.height;
+
+    const targetColor = getPixel(data, startX, startY, width);
+
+    const fillRgba = hexToRgba(fillColor);
+
+    if (colorsMatch(targetColor, fillRgba)) return;
+
+    const queue = [{ x: startX, y: startY }];
+
+    while (queue.length > 0) {
+        const { x, y } = queue.pop();
+
+        const currentColor = getPixel(data, x, y, width);
+        if (!colorsMatch(currentColor, targetColor)) continue;
+
+        setPixel(data, x, y, fillRgba);
+
+        if (x > 0) queue.push({ x: x - 1, y });
+        if (x < width - 1) queue.push({ x: x + 1, y });
+        if (y > 0) queue.push({ x, y: y - 1 });
+        if (y < height - 1) queue.push({ x, y: y + 1 });
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+}
+
+function getPixel(data, x, y, width) {
+    const index = (y * width + x) * 4;
+    return [
+        data[index],     // R
+        data[index + 1], // G
+        data[index + 2], // B
+        data[index + 3]  // A
+    ];
+}
+
+function setPixel(data, x, y, rgba) {
+    const index = (y * canvas.width + x) * 4;
+    data[index] = rgba[0];
+    data[index + 1] = rgba[1];
+    data[index + 2] = rgba[2];
+    data[index + 3] = rgba[3];
+}
+
+function colorsMatch(c1, c2) {
+    return c1[0] === c2[0] && c1[1] === c2[1] && c1[2] === c2[2] && c1[3] === c2[3];
+}
+
+function hexToRgba(hex) {
+    let r = 0, g = 0, b = 0, a = 255;
+    if (hex.startsWith('#')) {
+        hex = hex.slice(1);
+    }
+
+    if (hex.length === 3) {
+        r = parseInt(hex[0] + hex[0], 16);
+        g = parseInt(hex[1] + hex[1], 16);
+        b = parseInt(hex[2] + hex[2], 16);
+    } else if (hex.length === 6) {
+        r = parseInt(hex.substring(0, 2), 16);
+        g = parseInt(hex.substring(2, 4), 16);
+        b = parseInt(hex.substring(4, 6), 16);
+    }
+
+    return [r, g, b, a];
+}
+
 
 // Touch events for mobile support
 canvas.addEventListener('touchstart', (e) => {
