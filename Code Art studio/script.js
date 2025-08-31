@@ -62,45 +62,150 @@ function initCanvas() {
     saveState();
 }
 
+
+let history = [[]]; // Start with an array containing an empty shapes array
+let historyIndex = 0;
+
 // Undo/Redo functionality
+// function saveState() {
+//     currentStateIndex++;
+//     if (currentStateIndex < undoStack.length) {
+//         undoStack.length = currentStateIndex;
+//     }
+//     undoStack.push(canvas.toDataURL());
+//     redoStack = [];
+
+//     // Limit undo stack size
+//     if (undoStack.length > 50) {
+//         undoStack.shift();
+//         currentStateIndex--;
+//     }
+
+//     updateUndoRedoButtons();
+// }
+
 function saveState() {
-    currentStateIndex++;
-    if (currentStateIndex < undoStack.length) {
-        undoStack.length = currentStateIndex;
-    }
-    undoStack.push(canvas.toDataURL());
-    redoStack = [];
+    // Create a deep copy of the current shapes array
+    let newShapes = JSON.parse(JSON.stringify(shapes));
 
-    // Limit undo stack size
-    if (undoStack.length > 50) {
-        undoStack.shift();
-        currentStateIndex--;
-    }
+    // If we undo and then draw something new, trim the future history
+    history = history.slice(0, historyIndex + 1);
 
+    history.push(newShapes);
+    historyIndex++;
     updateUndoRedoButtons();
 }
 
+// function undo() {
+//     if (currentStateIndex > 0) {
+//         const redoState = undoStack[currentStateIndex];
+//         redoStack.push(redoState);
+//         currentStateIndex--;
+//         restoreState(undoStack[currentStateIndex]);
+//         updateUndoRedoButtons();
+//     }
+// }
+
+// function redo() {
+//     if (redoStack.length > 0) {
+//         currentStateIndex++;
+//         const redoState = redoStack.pop();
+//         if (currentStateIndex >= undoStack.length) {
+//             undoStack.push(redoState);
+//         }
+//         restoreState(redoState);
+//         updateUndoRedoButtons();
+//     }
+// }
+
 function undo() {
-    if (currentStateIndex > 0) {
-        const redoState = undoStack[currentStateIndex];
-        redoStack.push(redoState);
-        currentStateIndex--;
-        restoreState(undoStack[currentStateIndex]);
+    if (historyIndex > 0) {
+        historyIndex--;
+        shapes = JSON.parse(JSON.stringify(history[historyIndex]));
+        redrawCanvas();
+        updateCodeDisplay();
         updateUndoRedoButtons();
     }
 }
 
 function redo() {
-    if (redoStack.length > 0) {
-        currentStateIndex++;
-        const redoState = redoStack.pop();
-        if (currentStateIndex >= undoStack.length) {
-            undoStack.push(redoState);
-        }
-        restoreState(redoState);
+    if (historyIndex < history.length - 1) {
+        historyIndex++;
+        shapes = JSON.parse(JSON.stringify(history[historyIndex]));
+        redrawCanvas();
+        updateCodeDisplay();
         updateUndoRedoButtons();
     }
 }
+
+function redrawCanvas() {
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Note: You'll also need to handle freehand paths here
+    shapes.forEach(shape => {
+        // You'll need to modify your drawShape function to take a shape object
+        // and draw it without adding it to the array again.
+        drawShapeFromObject(shape);
+    });
+}
+
+function drawShapeFromObject(shape) {
+    // Set the drawing style based on the shape's saved properties
+    ctx.strokeStyle = shape.color;
+    ctx.lineWidth = shape.strokeWidth;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.globalAlpha = 1.0;
+    ctx.globalCompositeOperation = 'source-over';
+
+    ctx.beginPath();
+
+    switch (shape.type) {
+        case 'line':
+            ctx.moveTo(shape.x1, shape.y1);
+            ctx.lineTo(shape.x2, shape.y2);
+            break;
+
+        case 'rectangle':
+            ctx.strokeRect(shape.x1, shape.y1, shape.width, shape.height);
+            break;
+
+        case 'circle':
+            ctx.arc(shape.centerX, shape.centerY, shape.radius, 0, 2 * Math.PI);
+            break;
+
+        case 'triangle':
+            const midX = (shape.x1 + shape.x2) / 2;
+            ctx.moveTo(midX, shape.y1);
+            ctx.lineTo(shape.x1, shape.y2);
+            ctx.lineTo(shape.x2, shape.y2);
+            ctx.closePath();
+            break;
+
+        case 'star':
+            drawStar(ctx, shape.centerX, shape.centerY, shape.innerRadius, shape.outerRadius, 5);
+            break;
+
+        case 'ellipse':
+            ctx.ellipse(shape.centerX, shape.centerY, shape.radiusX, shape.radiusY, 0, 0, 2 * Math.PI);
+            break;
+
+        case 'path':
+            ctx.strokeStyle = shape.color;
+            ctx.lineWidth = shape.size;
+            ctx.globalCompositeOperation = shape.operation;
+
+            ctx.moveTo(shape.points[0].x, shape.points[0].y);
+            for (let i = 1; i < shape.points.length; i++) {
+                ctx.lineTo(shape.points[i].x, shape.points[i].y);
+            }
+            break;
+    }
+
+    ctx.stroke();
+}
+
 
 function restoreState(dataURL) {
     const img = new Image();
@@ -112,33 +217,62 @@ function restoreState(dataURL) {
 }
 
 function updateUndoRedoButtons() {
-    undoBtn.disabled = currentStateIndex <= 0;
-    redoBtn.disabled = redoStack.length === 0;
+    // undoBtn.disabled = currentStateIndex <= 0;
+    undoBtn.disabled = historyIndex <= 1;
+
+    // redoBtn.disabled = redoStack.length === 0;
+    redoBtn.disabled = historyIndex >= history.length;
+
     undoBtn.style.opacity = undoBtn.disabled ? '0.5' : '1';
     redoBtn.style.opacity = redoBtn.disabled ? '0.5' : '1';
 }
 
 // View switching
+// function switchView(view) {
+//     canvasViewBtn.classList.remove('active');
+//     codeViewBtn.classList.remove('active');
+//     splitViewBtn.classList.remove('active');
+
+//     switch (view) {
+//         case 'canvas':
+//             canvasViewBtn.classList.add('active');
+//             mainContent.style.gridTemplateColumns = '1fr';
+//             codePanel.classList.remove('active');
+//             break;
+//         case 'code':
+//             codeViewBtn.classList.add('active');
+//             mainContent.style.gridTemplateColumns = '0 1fr';
+//             codePanel.classList.add('active');
+//             break;
+//         case 'split':
+//             splitViewBtn.classList.add('active');
+//             mainContent.style.gridTemplateColumns = '1fr auto';
+//             codePanel.classList.add('active');
+//             break;
+//     }
+// }
+
 function switchView(view) {
+    // Toggle active class on buttons
     canvasViewBtn.classList.remove('active');
     codeViewBtn.classList.remove('active');
     splitViewBtn.classList.remove('active');
 
+    // Set the view mode class on the parent container
+    mainContent.classList.remove('view-canvas', 'view-code', 'view-split');
+
     switch (view) {
         case 'canvas':
             canvasViewBtn.classList.add('active');
-            mainContent.style.gridTemplateColumns = '1fr';
-            codePanel.classList.remove('active');
+            mainContent.classList.add('view-canvas');
             break;
         case 'code':
             codeViewBtn.classList.add('active');
-            mainContent.style.gridTemplateColumns = '0 1fr';
-            codePanel.classList.add('active');
+            mainContent.classList.add('view-code');
             break;
         case 'split':
             splitViewBtn.classList.add('active');
-            mainContent.style.gridTemplateColumns = '1fr auto';
-            codePanel.classList.add('active');
+            mainContent.classList.add('view-split');
             break;
     }
 }
@@ -185,6 +319,8 @@ function setDrawingStyle() {
     }
 }
 
+let currentPath = [];
+
 // Drawing functions
 function startDrawing(e) {
     isDrawing = true;
@@ -196,6 +332,8 @@ function startDrawing(e) {
         ctx.beginPath();
         ctx.moveTo(pos.x, pos.y);
         setDrawingStyle();
+
+        currentPath = [{ x: pos.x, y: pos.y }]; // Start recording the path
     } else {
         imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     }
@@ -209,6 +347,8 @@ function draw(e) {
     if (['pencil', 'brush', 'eraser'].includes(currentTool)) {
         ctx.lineTo(pos.x, pos.y);
         ctx.stroke();
+
+        currentPath.push({ x: pos.x, y: pos.y }); // Add new point to the path
     } else {
         ctx.putImageData(imageData, 0, 0);
         drawShape(startX, startY, pos.x, pos.y, true);
@@ -219,8 +359,22 @@ function stopDrawing(e) {
     if (!isDrawing) return;
 
     if (['pencil', 'brush', 'eraser'].includes(currentTool)) {
-        ctx.globalAlpha = 1.0;
-        ctx.globalCompositeOperation = 'source-over';
+        // ctx.globalAlpha = 1.0;
+        // ctx.globalCompositeOperation = 'source-over';
+
+        // Create a path object and save it to the shapes array
+        const path = {
+            id: shapeCounter++,
+            type: 'path',
+            points: currentPath,
+            color: currentTool === 'eraser' ? 'white' : currentColor,
+            size: currentTool === 'eraser' ? currentSize * 3 : (currentTool === 'brush' ? currentSize * 2 : currentSize),
+            operation: currentTool === 'eraser' ? 'destination-out' : 'source-over',
+            // We need to store all properties for redrawing
+            strokeWidth: currentTool === 'eraser' ? currentSize * 3 : (currentTool === 'brush' ? currentSize * 2 : currentSize)
+        };
+        shapes.push(path);
+        currentPath = []; // Clear the path for the next drawing
     } else {
         const pos = getPosition(e);
         ctx.putImageData(imageData, 0, 0);
@@ -368,6 +522,42 @@ function generateCSS() {
                 css += `  transform-origin: 0 50%;\n`;
                 css += `  transform: rotate(${angle}deg);\n`;
                 break;
+
+            case 'ellipse': // "Oval" is an ellipse
+                // It's like a circle, but uses different radii for width/height
+                css += `  left: ${shape.centerX - shape.radiusX}px;\n`;
+                css += `  top: ${shape.centerY - shape.radiusY}px;\n`;
+                css += `  width: ${shape.radiusX * 2}px;\n`;
+                css += `  height: ${shape.radiusY * 2}px;\n`;
+                css += `  border: ${shape.strokeWidth}px solid ${shape.color};\n`;
+                css += `  border-radius: 50%;\n`; // A 50% radius on a rectangle makes an ellipse
+                css += `  background: transparent;\n`;
+                break;
+
+            case 'triangle':
+                // The CSS triangle trick: a zero-size element where one border is visible
+                const triWidth = Math.abs(shape.x2 - shape.x1);
+                const triHeight = Math.abs(shape.y2 - shape.y1);
+                css += `  left: ${Math.min(shape.x1, shape.x2)}px;\n`;
+                css += `  top: ${shape.y1}px;\n`;
+                css += `  width: 0;\n`;
+                css += `  height: 0;\n`;
+                css += `  border-left: ${triWidth / 2}px solid transparent;\n`;
+                css += `  border-right: ${triWidth / 2}px solid transparent;\n`;
+                css += `  border-bottom: ${triHeight}px solid ${shape.color};\n`;
+                // Note: This only creates an upright triangle. Stroke isn't possible this way.
+                break;
+
+            case 'star':
+                // The best way to create a star in a single div is with clip-path
+                const starSize = Math.abs(shape.x2 - shape.x1);
+                css += `  left: ${shape.centerX - starSize / 2}px;\n`;
+                css += `  top: ${shape.centerY - starSize / 2}px;\n`;
+                css += `  width: ${starSize}px;\n`;
+                css += `  height: ${starSize}px;\n`;
+                css += `  background-color: ${shape.color};\n`; // clip-path works on background, not border
+                css += `  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);\n`;
+                break;
         }
 
         css += `}\n\n`;
@@ -408,6 +598,12 @@ function generateSVG() {
                 const midX = (shape.x1 + shape.x2) / 2;
                 svg += `  <polygon points="${midX},${shape.y1} ${shape.x1},${shape.y2} ${shape.x2},${shape.y2}" `;
                 svg += `fill="none" stroke="${shape.color}" stroke-width="${shape.strokeWidth}"/>\n`;
+                break;
+
+            case 'path':
+                // The 'd' attribute of a path is its data. M = Move To, L = Line To.
+                const pathData = "M " + shape.points.map(p => `${p.x} ${p.y}`).join(" L ");
+                svg += `  <path d="${pathData}" stroke="${shape.color}" stroke-width="${shape.strokeWidth}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>\n`;
                 break;
         }
     });

@@ -13,7 +13,7 @@ body {
 
 .app-container {
     display: grid;
-    grid-template-columns: 1fr;
+    /* grid-template-columns: 1fr; */
     grid-template-rows: auto 1fr;
     height: 100vh;
 }
@@ -204,8 +204,10 @@ input[type="range"]::-webkit-slider-thumb {
 .main-content {
     display: grid;
     grid-template-columns: 1fr auto;
-    height: calc(100vh - 140px);
+    /* height: calc(100vh - 140px); */
     gap: 0;
+    overflow: hidden;
+    transition: grid-template-columns 0.4s ease;
 }
 
 .canvas-container {
@@ -214,6 +216,7 @@ input[type="range"]::-webkit-slider-thumb {
     align-items: center;
     padding: 20px;
     position: relative;
+    min-height: 0;
 }
 
 canvas {
@@ -234,13 +237,30 @@ canvas {
     border-left: 1px solid rgba(255, 255, 255, 0.1);
     display: flex;
     flex-direction: column;
-    transform: translateX(100%);
-    transition: transform 0.3s ease;
+    /* transform: translateX(100%); */
+    /* transition: transform 0.3s ease; */
 }
 
-.code-panel.active {
+/* .code-panel.active {
     transform: translateX(0);
+} */
+
+.main-content.view-canvas {
+    /* Canvas takes all space, Code panel column has 0 width */
+    grid-template-columns: 1fr 0;
 }
+
+.main-content.view-code {
+    /* Canvas column has 0 width, Code panel takes all space */
+    grid-template-columns: 0 1fr;
+}
+
+.main-content.view-split {
+    /* Canvas takes remaining space, Code panel has its fixed width */
+    grid-template-columns: 1fr 400px;
+}
+
+
 
 .code-header {
     display: flex;
@@ -329,19 +349,32 @@ canvas {
 @media (max-width: 1200px) {
     .main-content {
         grid-template-columns: 1fr;
-        grid-template-rows: 1fr auto;
+        grid-template-rows: 1fr 0;
+        transition: grid-template-rows 0.4s ease;
     }
 
     .code-panel {
         width: 100%;
         height: 300px;
-        transform: translateY(100%);
+        /* transform: translateY(100%); */
         border-left: none;
         border-top: 1px solid rgba(255, 255, 255, 0.1);
     }
 
-    .code-panel.active {
+    /* .code-panel.active {
         transform: translateY(0);
+    } */
+
+    .main-content.view-canvas {
+        grid-template-rows: 1fr 0;
+    }
+
+    .main-content.view-code {
+        grid-template-rows: 0 1fr;
+    }
+
+    .main-content.view-split {
+        grid-template-rows: 1fr 300px;
     }
 }
 
@@ -365,9 +398,12 @@ canvas {
     }
 
     canvas {
-        width: 95vw;
+        /* width: 95vw;
         height: auto;
-        max-height: 60vh;
+        max-height: 60vh; */
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
     }
 }
 
